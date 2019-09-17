@@ -1,0 +1,16 @@
+[System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
+$file = '*Excel File Path*'
+$x1 = New-Object -ComObject "Excel.Application"
+$x1.Visible = $false
+$enddate = (Get-Date).tostring("ddMMyy")
+$filename = '*Where New Excel File to be stored*' + $enddate + '.xlsx'
+$wb = $x1.workbooks.Open($file)
+$wb.refreshall()
+Start-Sleep -s 30
+$wb.SaveAs($filename)
+$wb.Close()
+$x1.Quit()
+[void][System.Runtime.Interopservices.Marshal]::ReleaseComObject($wb)
+[void][System.Runtime.Interopservices.Marshal]::ReleaseComObject($x1)
+[GC]::Collect()
+Remove-Variable wb,x1

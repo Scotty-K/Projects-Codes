@@ -1,0 +1,32 @@
+select ILE.[Item No_],
+    ILE.[Posting Date],
+    ILE.[Entry Type],
+    ILE.[Source No_],
+    ILE.[Document No_],
+    ILE.[Description],
+    ILE.[Location Code],
+    ILE.[Quantity],
+    ILE.[Remaining Quantity],
+    ILE.[Invoiced Quantity],
+    ILE.[Global Dimension 1 Code],
+    ILE.[Global Dimension 2 Code],
+    ILE.[Document Date],
+    ILE.[Document Type],
+    ILE.[Document Line No_],
+    ILE.[Order Type],
+    ILE.[Order No_],
+    ILE.[Dimension Set ID],
+    ILE.[Qty_ per Unit of Measure],
+    ILE.[Item Category Code],
+    ILE.[Lot No_],
+    ILE.[Net Weight],
+    ILE.[Creation DateTime],
+    PORL.[Prod_ Order No_],
+    PORL.[Work Center No_],
+    PORL.[Work Center Group Code],
+    PORL.[Description] AS 'Work Center Name'
+from [dbo].[Database$Item Ledger Entry] ILE
+LEFT JOIN [dbo].[Database$Prod_ Order Routing Line] PORL
+    ON PORL.[Prod_ Order No_] = ILE.[Document No_]
+WHERE [Entry Type] = 6
+AND [Item Category Code] IN ('FG' ,'WIP')

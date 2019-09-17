@@ -1,0 +1,8 @@
+select [Item No_], 
+SUM([Quantity]) as 'Floor Quantity', 
+[Lot No_],
+[Location Code]
+from [dbo].[Database$Warehouse Entry]
+WHERE [Location Code] LIKE 'Plant Location' 
+GROUP BY [Lot No_], [Item No_], [Location Code]
+HAVING SUM([Quantity]) <> 0

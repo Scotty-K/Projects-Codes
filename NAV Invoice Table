@@ -1,0 +1,162 @@
+(SELECT  
+       A.[Posting Date]
+        ,A.[Shipment Date]
+      ,A.[No_] AS 'INVOICE'   
+      ,A.[Order No_]
+      ,G.[Document No_] AS 'Posted Purchase Invoice No.'
+      --,B.[Line No_] 
+      ,(Case B.[Type] when '2' then 'Item' else 'Charge' End) AS 'Type'
+      ,A.[Bill-to Customer No_] AS 'Customer'
+      ,A.[Ship-to Address] AS "Address"
+      ,A.[Ship-to Address 2] AS "Address 2"
+      ,A.[Ship-to City] AS "City"
+      ,A.[Ship-to Post Code] AS "Zip"
+      ,A.[Ship-to County] AS 'Ship-to State'
+      ,A.[Ship-to Country_Region Code] AS "Country"
+      ,A.[Bill-to Name] as 'Customer Name'
+      ,A.[User ID]
+      ,B.[No_] AS 'Item Number'     
+      ,B.[Description] 'Item Description'
+      ,(CASE WHEN A.[No_] LIKE 'SC%' THEN - B.[Quantity]ELSE B.[Quantity] END) AS  'Quantity'
+      ,B.[Unit of Measure Code] AS 'Sales UOM'  
+      ,(CASE WHEN A.[No_] LIKE 'SC%' THEN - B.[Line Net Weight] ELSE B.[Line Net Weight] END) AS  'Line Net Weight'
+      ,C.[GROSS AMT] AS 'GROSS AMT'
+      , -ISNULL(F. [Amount to Assign] ,0) AS 'Accrued Freight'
+      , -ISNULL(G. [Amount to Assign] ,0) AS 'Posted Freight'
+      ,- C.[GROSS AMT]*A.[Payment Discount _] *0.01 AS 'Cash Discount' 
+      ,- ISNULL(D.[PROMOTION],0)  as 'Promotion'
+	  ,(C.[GROSS AMT] * (1-A.[Payment Discount _] *0.01))-ISNULL(D.[PROMOTION],0) AS  'Net Amount' 
+	  ,- ISNULL(B.[BROKERAGE],0) AS 'Brokerage'
+	  ,- ISNULL(C.[COST OF GOODS],0) AS 'CoG'
+      ,ISNULL(Case when B.[Type]=2  Then D.[ACCRUALS] Else 0  End , 0) AS 'Accruals'
+        ,B.[Dimension Set ID]
+        ,A.[Dimension Set ID] AS 'Dimension Header ID'
+  FROM [CALLEDNAVSERVER].[dbo].[Database$Sales Invoice Header] A 
+  LEFT JOIN 
+ (Select  Z.[Document No_]
+       ,Z.[Type]
+       ,Z.[No_]
+       ,Z.[Description]
+       ,Z.[Unit of Measure Code]
+	   ,Z.[Dimension Set ID]
+       ,SUM(Z.[Quantity]) AS 'Quantity' 
+       ,SUM (Z.[Line Net Weight] ) AS 'Line Net Weight'
+       --,SUM (Z.[GROSS AMT]) AS 'GROSS AMT'
+       ,SUM (Z.[BROKERAGE]) AS 'BROKERAGE'
+        FROM (SELECT X.*, Y.[Amount] AS 'BROKERAGE' FROM [CALLEDNAVSERVER].[dbo].[Database$Sales Invoice Line] X
+              LEFT JOIN  [CALLEDNAVSERVER].[dbo].[Database$Detailed Comm_ Ledger Entry] Y
+              ON Y.[Document Type]=0
+   AND Y.[Document No_]=X.[Document No_]
+   AND Y.[Document Line No_]=X.[Line No_]) Z
+GROUP BY  Z.[Document No_],Z.[Type],Z.[No_],Z.[Description],
+                   Z.[Unit of Measure Code],Z.[Dimension Set ID]) B 
+
+  ON A.[No_]=B.[Document No_]  
+  LEFT JOIN 
+   (SELECT [Document No_]
+      ,[Description]
+	  --,[Global Dimension 1 Code],[Global Dimension 2 Code]
+	  ,Sum([Sales Amount (Actual)]) as 'GROSS AMT' 
+      ,-Sum([Cost Amount (Actual)]) as 'COST OF GOODS'  
+   FROM [CALLEDNAVSERVER].[dbo].[Database$Value Entry]
+   Group by  [Document No_],[Description]--,[Global Dimension 1 Code],[Global Dimension 2 Code]
+   ) C
+   ON C.[Document No_]=B.[Document No_] AND C.[Description]=B.[Description]
+  
+  left JOIN 
+( SELECT [Source No_],[Item No_]
+, SUM(CASE WHEN [Rebate Type]=0 THEN [Amount (LCY)] ELSE 0 END ) AS 'PROMOTION'
+, SUM(CASE WHEN [Rebate Type]<>0 THEN [Amount (LCY)] ELSE 0 END) AS 'ACCRUALS' 
+FROM [CALLEDNAVSERVER].[dbo].[Database$Rebate Ledger Entry] 
+where [Functional Area]=0 AND [Source Type]=6 
+GROUP BY [Source No_],[Item No_]
+)as D
+  ON D. [Source No_]=A.[No_]  and  D.[Item No_]=B.[No_] 
+Left Join
+  (Select  [Orig_ Doc_ No_],[Item No_]
+       ,Sum([Amount to Assign]) AS 'Amount to Assign' 
+  FROM [CALLEDNAVSERVER].[dbo].[Database$Item Charge Assignment (Purch)]  
+   Group by  [Orig_ Doc_ No_] ,[Item No_]) F
+   ON A.[Order No_]=F.[Orig_ Doc_ No_] AND F.[Item No_]=B.[No_] 
+Left Join  
+   (Select  [Orig_ Doc_ No_],[Document No_],[Item No_],[Orig_ Doc_ Type]
+       ,Sum([Amount to Assign]) AS 'Amount to Assign' 
+FROM [CALLEDNAVSERVER].[dbo].[Database$Posted Item Chg Asgnmt (Purch)] 
+WHERE [Orig_ Doc_ Type]=11
+Group by  [Orig_ Doc_ No_] ,[Item No_],[Orig_ Doc_ Type], [Document No_]) G
+ON A.[Order No_]=G.[Orig_ Doc_ No_] AND G.[Item No_]=B.[No_]  	
+WHERE B.[Type]=2  or B.[Type]=5)
+UNION ALL 
+(SELECT  
+       A1.[Posting Date]
+    ,A1.[Shipment Date]
+      ,A1.[No_] AS 'INVOICE'   
+      ,'' AS 'Order No_'
+      ,'' AS 'Posted Purchase Invoice No.'
+     -- ,B1.[Line No_]
+      ,(Case B1.[Type] when '2' then 'Item' else 'Charge' End) AS 'Type'
+      ,A1.[Bill-to Customer No_] AS 'Customer'
+      ,A1.[Ship-to Address] AS "Address"
+      ,A1.[Ship-to Address 2] AS "Address 2"
+      ,A1.[Ship-to City] AS "City"
+      ,A1.[Ship-to Post Code] AS "Zip"
+      ,A1.[Ship-to County] AS 'Ship-to State'
+      ,A1.[Ship-to Country_Region Code] AS "Country"
+      ,A1.[Bill-to Name] as 'Customer Name'
+      ,A1.[User ID]
+      ,B1.[No_] AS 'Item Number'    
+      ,B1.[Description] 'Item Description'
+      ,(CASE WHEN A1.[No_] LIKE 'SC%' THEN - B1.[Quantity] ELSE B1.[Quantity] END) AS  'Quantity'
+      ,B1.[Unit of Measure Code] AS 'Sales UOM'  
+     ,(CASE WHEN A1.[No_] LIKE 'SC%' THEN - B1.[Line Net Weight] ELSE B1.[Line Net Weight] END) AS 'Line Net Weight'
+      ,-C1.[GROSS AMT] AS 'GROSS AMT'
+      , 0  AS 'Accrued Freight'
+      , 0  AS 'Posted Freight'
+      ,-C1.[GROSS AMT]*A1.[Payment Discount _] *0.01 AS 'Cash Discount' 
+	  ,ISNULL(D1.[PROMOTION],0)  as 'Promotion'
+	  ,(-C1.[GROSS AMT] * (1-A1.[Payment Discount _] *0.01))-ISNULL(D1.[PROMOTION],0) AS  'Net Amount'
+	  ,ISNULL(B1.[BROKERAGE],0)  AS 'Brokerage'
+	  ,ISNULL(C1.[COST OF GOODS],0) AS 'CoG'
+	        ,ISNULL(Case when B1.[Type]=2  Then D1.[ACCRUALS] Else 0  End , 0) AS 'Accruals'
+        ,B1.[Dimension Set ID]
+        ,A1.[Dimension Set ID] AS 'Dimension Header ID'
+  FROM [CALLEDNAVSERVER].[dbo].[Database$Sales Cr_Memo Header] A1 
+  LEFT JOIN 
+  ( Select  Z1.[Document No_]
+       ,Z1.[Type]
+       ,Z1.[No_]
+       ,Z1.[Description]
+       ,Z1.[Unit of Measure Code]
+	   ,Z1.[Dimension Set ID]
+       ,SUM(Z1.[Quantity]) AS 'Quantity' 
+       ,SUM (Z1.[Line Net Weight] ) AS 'Line Net Weight'
+      --,SUM (Z1.[GROSS AMT]) AS 'GROSS AMT'
+       ,SUM (Z1.[BROKERAGE]) AS 'BROKERAGE'
+        FROM (SELECT X1.*, Y1.[Amount] AS 'BROKERAGE' FROM [CALLEDNAVSERVER].[dbo].[Database$Sales Cr_Memo Line] X1
+              LEFT JOIN  [CALLEDNAVSERVER].[dbo].[Database$Detailed Comm_ Ledger Entry] Y1
+              ON Y1.[Document Type]=0
+   AND Y1.[Document No_]=X1.[Document No_]
+   AND Y1.[Document Line No_]=X1.[Line No_]) Z1
+GROUP BY  Z1.[Document No_],Z1.[Type],Z1.[No_],Z1.[Description],
+                   Z1.[Unit of Measure Code],Z1.[Dimension Set ID])  B1
+  ON A1.[No_]=B1.[Document No_]  
+  LEFT JOIN 
+   (SELECT [Document No_]
+      ,[Description]
+	 -- ,[Global Dimension 1 Code],[Global Dimension 2 Code]
+	  ,Sum([Sales Amount (Actual)]) as 'GROSS AMT' 
+      ,-Sum([Cost Amount (Actual)]) as 'COST OF GOODS'  
+   FROM [CALLEDNAVSERVER].[dbo].[Database$Value Entry]
+   Group by  [Document No_],[Description]--,[Global Dimension 1 Code],[Global Dimension 2 Code] 
+   ) C1
+   ON C1.[Document No_]=B1.[Document No_] AND C1.[Description]=B1.[Description]
+  left JOIN 
+( SELECT [Source No_],[Item No_]
+, SUM(CASE WHEN [Rebate Type]=0 THEN [Amount (LCY)] ELSE 0 END ) AS 'PROMOTION'
+, SUM(CASE WHEN [Rebate Type]<>0 THEN [Amount (LCY)] ELSE 0 END) AS 'ACCRUALS' 
+FROM [CALLEDNAVSERVER].[dbo].[Database$Rebate Ledger Entry] 
+where [Functional Area]=0 AND [Source Type]=7 
+GROUP BY [Source No_],[Item No_]
+)as D1
+  ON D1. [Source No_]=A1.[No_]   and  D1.[Item No_]=B1.[No_] 
+ WHERE B1.[Type]=2  or B1.[Type]=5)

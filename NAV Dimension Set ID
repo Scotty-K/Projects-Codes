@@ -1,0 +1,10 @@
+SELECT [Dimension Set ID],
+[LO], [CUS], [CO], [CC], [FA], [CL], [PR], [FR]
+FROM
+(SELECT [Dimension Set ID], [Dimension Code], [Dimension Value Code]
+ FROM [CALLEDNAVSERVER].[dbo].[Database$Dimension Set Entry]) AS SourceTable
+PIVOT
+(
+ MAX([Dimension Value Code])
+ FOR [Dimension Code] IN ([LO], [CUS], [CO], [CC], [FA], [CL], [PR], [FR])
+) AS PivotTable;
