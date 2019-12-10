@@ -1,0 +1,14 @@
+    # Open Excel file
+    $directoryInfo = Get-ChildItem //folder directory// | Measure-Object
+    if ( $directoryInfo.count -ge 1) {
+        $excel = new-object -comobject excel.application
+        $filePath = //Excel File path//
+        $workbook = $excel.Workbooks.Open($FilePath)
+        $excel.Visible = $false
+        $excel.Run("Refresh_Macro")
+        Start-Sleep -s 30
+        $excel.Run("Program_Macro")
+        $workbook.save()
+        $workbook.close()
+        $excel.quit()
+    }
